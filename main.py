@@ -28,19 +28,19 @@
 from ollama import chat
 from ollama import ChatResponse
 
-with open("words.txt", "r", encoding="utf-8") as f:
+with open("par.txt", "r", encoding="utf-8") as f:
     words = f.read()
 
-with open("SYSTEM.md", "r", encoding="utf-8") as f:
+with open("SYSTEM_v4.md", "r", encoding="utf-8") as f:
     system = f.read()
 
-with open("SYSTEM_DECODE.md", "r", encoding="utf-8") as f:
+with open("SYSTEM_DECODE_v3.md", "r", encoding="utf-8") as f:
     system_decode = f.read()
 
 
 #words = words.replace(" ", "")
 
-response: ChatResponse = chat(model='gemma4:e2b', messages=[
+response: ChatResponse = chat(model='gemma4:e4b', messages=[
     {
         'role': 'system',
         'content': system
@@ -55,7 +55,7 @@ print("====================================================")
 print(response.message.content)
 print("====================================================")
 
-response2: ChatResponse = chat(model='gemma4:e2b', messages=[
+response2: ChatResponse = chat(model='gemma4:e4b', messages=[
     {
         'role': 'system',
         'content': system_decode

@@ -4,7 +4,7 @@
 
 # client = OpenAI(
 #     # This is the default and can be omitted
-#     api_key="sk-lm-UudaIYkg:84XHUx8svlzJoNrXCJIm",
+#     api_key="",
 #     base_url="http://127.0.0.1:1234/v1"
 # )
 

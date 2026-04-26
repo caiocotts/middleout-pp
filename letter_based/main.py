@@ -141,9 +141,16 @@ def checker(COMPRESSED:str, RESTORED:str)->str:
     ], think=False)
     return response['message']['content']
 
+# with open("../par.txt", "r", encoding="utf-8") as f:
+#     par = f.read()
+
+# with open("../par2.txt", "r", encoding="utf-8") as f:
+#     word = f.read()
+
+
 def main():
     parser = argparse.ArgumentParser(description='Middleout: LLM-assisted hybrid compression POC')
-    parser.add_argument('mode', choices=['compress', 'decompress', 'roundtrip'],
+    parser.add_argument('mode', choices=['compress', 'decompress', 'roundtrip', 'check'],
                         help='compress: phase 1 only (algorithmic) | decompress: phase 2 only (LLM) | roundtrip: both phases in sequence')
     parser.add_argument('input', help='Path to input text file')
     args = parser.parse_args()
@@ -165,8 +172,8 @@ def main():
         print('\n=== RECONSTRUCTED ===')
         decompressed = decompress(compressed)
         print(decompressed)
-
-        print(checker(compressed, decompressed))
+    elif args.mode == 'check':
+        print(checker(word,par))
 
 
 if __name__ == '__main__':

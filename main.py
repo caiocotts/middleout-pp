@@ -1,6 +1,6 @@
 import argparse
 import re
-from ollama import chat, ChatResponse
+from ollama import ChatResponse, Client
 
 MODEL = 'gemma4:e4b'
 
@@ -60,6 +60,10 @@ def compress_word(token: str, at_sentence_start: bool) -> str:
     compressed_core = first + stripped_middle + last
     if len(core) - len(compressed_core) < 2:
         return token
+    # Skip if the compressed form would be < 4 chars — the decompressor can't
+    # reliably detect it, and short skeletons are highly ambiguous (e.g. yrs, txc)
+    if len(compressed_core) < 4:
+        return token
 
     return pre + compressed_core + post
 
@@ -97,12 +101,12 @@ You are a lossless text decompressor. The input is a compressed version of an or
 
 Compressed tokens are self-identifying by this exact rule:
   A token is compressed if and only if ALL of the following are true:
-  1. Its alphabetic core (letters only, ignoring surrounding punctuation) is longer than 4 characters.
-  2. Every character between the first and last letter of that core is a consonant — i.e. the interior contains none of: a, e, i, o, u (case-insensitive).
-  Tokens that do not meet both conditions are original words and must be copied through unchanged.
+  1. Its alphabetic core (the full sequence of letters, ignoring any surrounding punctuation) is 4 or more characters long. Count ALL letters including the first and last.
+  2. Every character BETWEEN the first and last letter of that core is a consonant — i.e. none of: a, e, i, o, u (case-insensitive). Only check the interior characters, not the first or last.
 
-Examples of compressed tokens: cmprssd, btfl, thrgh, rmmbr, lngg, rnnng, sndscp, gnrtr
-Examples of original tokens (do not expand): the, and, Finn, wasn't, API, pizza, stale
+  Example check for "Bsde": core = "Bsde", length = 4 ✓, interior = "sd" (no vowels) ✓ → COMPRESSED → expand it.
+  Example check for "the": core = "the", length = 3 ✗ → NOT compressed → copy verbatim.
+  Example check for "pizza": core = "pizza", length = 5 ✓, interior = "izz" (contains 'i') ✗ → NOT compressed → copy verbatim.
 
 ═══ HARD CONSTRAINTS (never violate) ═══
 
@@ -116,12 +120,15 @@ C4. USE CONTEXT TO DISAMBIGUATE. If multiple vowel insertions produce valid word
 
 C5. PRESERVE ALL PUNCTUATION AND SPACING EXACTLY. Do not add, remove, or change punctuation marks, capitalisation, or sentence boundaries.
 
-C6. OUTPUT ONLY THE RECONSTRUCTED TEXT. No explanations, metadata, or commentary.\
+C6. OUTPUT ONLY THE RECONSTRUCTED TEXT. No explanations, metadata, or commentary.
+
+Begin your response with the first word of the reconstructed text.
 """
 
 
 def decompress(text: str) -> str:
-    response: ChatResponse = chat(model=MODEL, messages=[
+    client = Client(host='hyperion.caiocotts.com:11434')
+    response: ChatResponse = client.chat(model=MODEL, messages=[
         {'role': 'system', 'content': DECOMPRESS_SYSTEM_PROMPT},
         {'role': 'user', 'content': f'Restore the missing letters in the following compressed text:\n"""\n{text}\n"""'},
     ])

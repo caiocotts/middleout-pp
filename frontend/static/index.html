@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Middleout — Text Compression</title>
+  <meta name="description"
+    content="Upload a text file to compress it with Middleout — a vowel-stripping compression engine with LLM decompression." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+  <!-- Animated background -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="orb orb-1" aria-hidden="true"></div>
+  <div class="orb orb-2" aria-hidden="true"></div>
+  <div class="orb orb-3" aria-hidden="true"></div>
+
+  <main>
+    <!-- Header -->
+    <header class="site-header">
+      <div class="logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">Middleout++</span>
+      </div>
+      <p class="tagline">Meta-Vowel-Stripping-Compression ·
+        LLM-powered restoration</p>
+    </header>
+
+    <!-- Upload Zone -->
+    <section class="upload-section" id="upload-section">
+      <div class="drop-zone" id="drop-zone" role="button" tabindex="0"
+        aria-label="Drop a text file here or click to browse">
+        <div class="drop-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+        </div>
+        <p class="drop-primary">Drop a <code>.txt</code> file here</p>
+        <p class="drop-secondary">or <span class="browse-link" id="browse-trigger">click to browse</span></p>
+        <input type="file" id="file-input" accept=".txt,text/plain" hidden />
+      </div>
+
+      <!-- File info pill -->
+      <div class="file-pill" id="file-pill" hidden>
+        <span class="file-pill-icon">📄</span>
+        <span class="file-pill-name" id="file-pill-name"></span>
+        <span class="file-pill-size" id="file-pill-size"></span>
+        <button class="file-pill-remove" id="file-pill-remove" aria-label="Remove file">✕</button>
+      </div>
+
+      <button class="run-btn" id="run-btn" disabled>
+        <span class="run-btn-label">Encode &amp; Decode</span>
+        <span class="run-btn-icon">→</span>
+      </button>
+    </section>
+
+    <!-- Processing animation -->
+    <div class="processing" id="processing" hidden>
+      <div class="processing-inner">
+        <div class="pipeline">
+          <div class="pipeline-step active" id="step-compress">
+            <div class="step-dot"></div>
+            <span>Encoding</span>
+          </div>
+          <div class="pipeline-line" id="line-1"></div>
+          <div class="pipeline-step" id="step-decompress">
+            <div class="step-dot"></div>
+            <span>Restoring</span>
+          </div>
+          <div class="pipeline-line" id="line-2"></div>
+          <div class="pipeline-step" id="step-done">
+            <div class="step-dot"></div>
+            <span>Done</span>
+          </div>
+        </div>
+
+        <!-- Loading bar: visible only during the LLM decompression wait -->
+        <div class="loading-bar-wrap" id="loading-bar-wrap" hidden>
+          <div class="loading-bar-track">
+            <div class="loading-bar-fill" id="loading-bar-fill"></div>
+          </div>
+          <p class="loading-bar-label" id="loading-bar-label">Running LLM decompression…</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <section class="results" id="results" hidden>
+
+      <!-- Stats bar -->
+      <div class="stats-bar">
+        <div class="stat">
+          <span class="stat-label">Original</span>
+          <span class="stat-value" id="stat-original">—</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-label">Encoded</span>
+          <span class="stat-value" id="stat-compressed">—</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat accent">
+          <span class="stat-label">Saved</span>
+          <span class="stat-value" id="stat-ratio">—</span>
+        </div>
+      </div>
+
+      <!-- Three panels -->
+      <div class="panels" id="panels">
+
+        <div class="panel" id="panel-original">
+          <div class="panel-header">
+            <span class="panel-badge badge-original">Original</span>
+            <button class="copy-btn" data-target="text-original" aria-label="Copy original text">Copy</button>
+          </div>
+          <pre class="panel-body" id="text-original"></pre>
+        </div>
+
+        <div class="panel" id="panel-compressed">
+          <div class="panel-header">
+            <span class="panel-badge badge-compressed">Encoded</span>
+            <button class="copy-btn" data-target="text-compressed" aria-label="Copy compressed text">Copy</button>
+          </div>
+          <pre class="panel-body" id="text-compressed"></pre>
+        </div>
+
+        <div class="panel" id="panel-decoded">
+          <div class="panel-header">
+            <span class="panel-badge badge-decoded" id="decoded-badge">Decoded</span>
+            <button class="copy-btn" data-target="text-decoded" id="decoded-copy-btn"
+              aria-label="Copy decoded text">Copy</button>
+          </div>
+          <!-- Skeleton shown while LLM is running -->
+          <div class="skeleton-wrap" id="decoded-skeleton" hidden>
+            <div class="skeleton-line" style="width:94%"></div>
+            <div class="skeleton-line" style="width:80%"></div>
+            <div class="skeleton-line" style="width:88%"></div>
+            <div class="skeleton-line" style="width:72%"></div>
+            <div class="skeleton-line" style="width:91%"></div>
+            <div class="skeleton-line" style="width:65%"></div>
+            <div class="skeleton-line" style="width:85%"></div>
+            <div class="skeleton-line" style="width:77%"></div>
+          </div>
+          <!-- Filled in once decompression completes -->
+          <pre class="panel-body" id="text-decoded" hidden></pre>
+          <div class="decompress-note" id="decompress-note" hidden></div>
+        </div>
+
+      </div>
+
+      <button class="reset-btn" id="reset-btn">← Try another file</button>
+    </section>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+
+</html>

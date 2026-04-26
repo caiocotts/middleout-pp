@@ -28,7 +28,7 @@
 from ollama import chat
 from ollama import ChatResponse
 
-with open("par.txt", "r", encoding="utf-8") as f:
+with open("words.txt", "r", encoding="utf-8") as f:
     words = f.read()
 
 with open("SYSTEM_v4.md", "r", encoding="utf-8") as f:
@@ -64,7 +64,8 @@ response2: ChatResponse = chat(model='gemma4:e4b', messages=[
         'role': 'user',
         'content': response.message.content,
     },
-])
+],think=False)
+
 
 
 #print(system)

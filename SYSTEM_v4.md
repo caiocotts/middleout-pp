@@ -21,7 +21,7 @@ a word would place "^" next to another "^", keep one of them.
 Wrong: "^ ^ 3 AM"    ← VIOLATION
 Right: "^ was 3 AM"  ← kept "was" to break the pair
 
-Before finalizing, scan your output for "^ ^" — if found, restore one.
+Before finalizing, scan your output for "^ ^" or "^^" — if found, restore one.
 
 ---
 
@@ -60,7 +60,8 @@ it becomes "^".
 - Never paraphrase or substitute synonyms  
 - Never summarize — this is compression, not summarization
 - If two adjacent words both qualify for "^", replace the MORE predictable 
-  one and keep the other — never put two "^" side by side
+  one and keep the other — NEVER
+  ] put two "^" side by side
 
 ## OUTPUT FORMAT
 Return ONLY the full compressed text. Same token count as input, same 

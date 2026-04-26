@@ -58,7 +58,7 @@
       </div>
 
       <button class="run-btn" id="run-btn" disabled>
-        <span class="run-btn-label">Compress &amp; Decode</span>
+        <span class="run-btn-label">Encode &amp; Decode</span>
         <span class="run-btn-icon">→</span>
       </button>
     </section>
@@ -69,7 +69,7 @@
         <div class="pipeline">
           <div class="pipeline-step active" id="step-compress">
             <div class="step-dot"></div>
-            <span>Compressing</span>
+            <span>Encoding</span>
           </div>
           <div class="pipeline-line" id="line-1"></div>
           <div class="pipeline-step" id="step-decompress">
@@ -104,7 +104,7 @@
         </div>
         <div class="stat-divider"></div>
         <div class="stat">
-          <span class="stat-label">Compressed</span>
+          <span class="stat-label">Encoded</span>
           <span class="stat-value" id="stat-compressed">—</span>
         </div>
         <div class="stat-divider"></div>
@@ -127,7 +127,7 @@
 
         <div class="panel" id="panel-compressed">
           <div class="panel-header">
-            <span class="panel-badge badge-compressed">Compressed</span>
+            <span class="panel-badge badge-compressed">Encoded</span>
             <button class="copy-btn" data-target="text-compressed" aria-label="Copy compressed text">Copy</button>
           </div>
           <pre class="panel-body" id="text-compressed"></pre>
@@ -135,10 +135,23 @@
 
         <div class="panel" id="panel-decoded">
           <div class="panel-header">
-            <span class="panel-badge badge-decoded">Decoded</span>
-            <button class="copy-btn" data-target="text-decoded" aria-label="Copy decoded text">Copy</button>
+            <span class="panel-badge badge-decoded" id="decoded-badge">Decoded</span>
+            <button class="copy-btn" data-target="text-decoded" id="decoded-copy-btn"
+              aria-label="Copy decoded text">Copy</button>
           </div>
-          <pre class="panel-body" id="text-decoded"></pre>
+          <!-- Skeleton shown while LLM is running -->
+          <div class="skeleton-wrap" id="decoded-skeleton" hidden>
+            <div class="skeleton-line" style="width:94%"></div>
+            <div class="skeleton-line" style="width:80%"></div>
+            <div class="skeleton-line" style="width:88%"></div>
+            <div class="skeleton-line" style="width:72%"></div>
+            <div class="skeleton-line" style="width:91%"></div>
+            <div class="skeleton-line" style="width:65%"></div>
+            <div class="skeleton-line" style="width:85%"></div>
+            <div class="skeleton-line" style="width:77%"></div>
+          </div>
+          <!-- Filled in once decompression completes -->
+          <pre class="panel-body" id="text-decoded" hidden></pre>
           <div class="decompress-note" id="decompress-note" hidden></div>
         </div>
 

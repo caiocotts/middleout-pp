@@ -1,5 +1,8 @@
 /* ========================================================
    Middleout Frontend — app.js
+   Two-phase flow:
+     Phase 1 → /api/compress  (instant, shows original + compressed immediately)
+     Phase 2 → /api/decompress (LLM, fills decoded panel when ready)
    ======================================================== */
 
 const dropZone     = document.getElementById('drop-zone');
@@ -14,24 +17,21 @@ const processing   = document.getElementById('processing');
 const results      = document.getElementById('results');
 const uploadSect   = document.getElementById('upload-section');
 
-// Pipeline elements
-const stepCompress   = document.getElementById('step-compress');
-const stepDecompress = document.getElementById('step-decompress');
-const stepDone       = document.getElementById('step-done');
-const line1          = document.getElementById('line-1');
-const line2          = document.getElementById('line-2');
-
 // Stat elements
 const statOriginal   = document.getElementById('stat-original');
 const statCompressed = document.getElementById('stat-compressed');
 const statRatio      = document.getElementById('stat-ratio');
 
 // Text panels
-const textOriginal   = document.getElementById('text-original');
-const textCompressed = document.getElementById('text-compressed');
-const textDecoded    = document.getElementById('text-decoded');
-const decompressNote = document.getElementById('decompress-note');
+const textOriginal    = document.getElementById('text-original');
+const textCompressed  = document.getElementById('text-compressed');
+const textDecoded     = document.getElementById('text-decoded');
+const decompressNote  = document.getElementById('decompress-note');
+const decodedSkeleton = document.getElementById('decoded-skeleton');
+const decodedBadge    = document.getElementById('decoded-badge');
+const decodedCopyBtn  = document.getElementById('decoded-copy-btn');
 
+// Loading bar (kept for backwards compat but no longer used in new flow)
 const loadingBarWrap  = document.getElementById('loading-bar-wrap');
 const loadingBarLabel = document.getElementById('loading-bar-label');
 
@@ -52,7 +52,7 @@ function fmtChars(n) {
 }
 
 function setFile(file) {
-  if (!file || file.type !== 'text/plain' && !file.name.endsWith('.txt')) {
+  if (!file || (file.type !== 'text/plain' && !file.name.endsWith('.txt'))) {
     alert('Please upload a plain .txt file.');
     return;
   }
@@ -76,61 +76,43 @@ function showUpload() {
   uploadSect.hidden = false;
 }
 
-function showProcessing() {
+/* ── Phase 1: show original + compressed right away ────── */
+function showPartialResults(data) {
   uploadSect.hidden = true;
-  results.hidden    = true;
-  processing.hidden = false;
-  loadingBarWrap.hidden = true;   // hidden until LLM phase starts
-  // reset pipeline
-  [stepCompress, stepDecompress, stepDone].forEach(s => {
-    s.classList.remove('active', 'done');
-  });
-  [line1, line2].forEach(l => l.classList.remove('filled'));
-  stepCompress.classList.add('active');
-}
-
-function pipelineProgress(stage) {
-  // stage: 'decompress' | 'done'
-  if (stage === 'decompress') {
-    stepCompress.classList.remove('active');
-    stepCompress.classList.add('done');
-    line1.classList.add('filled');
-    stepDecompress.classList.add('active');
-    // Show loading bar now that we're waiting for Ollama
-    loadingBarWrap.hidden = false;
-    loadingBarLabel.textContent = 'Running LLM decompression…';
-  } else if (stage === 'done') {
-    loadingBarWrap.hidden = true;     // hide bar when done
-    stepDecompress.classList.remove('active');
-    stepDecompress.classList.add('done');
-    line2.classList.add('filled');
-    stepDone.classList.add('active');
-    setTimeout(() => {
-      stepDone.classList.remove('active');
-      stepDone.classList.add('done');
-    }, 400);
-  }
-}
-
-function showResults(data) {
   processing.hidden = true;
   results.hidden    = false;
 
-  // Stats
   statOriginal.textContent   = fmtChars(data.stats.original_chars);
   statCompressed.textContent = fmtChars(data.stats.compressed_chars);
   statRatio.textContent      = `${data.stats.ratio}% smaller`;
 
-  // Panels
-  textOriginal.textContent   = data.original;
+  textOriginal.textContent  = data.original;
   textCompressed.textContent = data.compressed;
 
+  // Decoded panel → show skeleton while LLM runs
+  textDecoded.hidden     = true;
+  decompressNote.hidden  = true;
+  decodedSkeleton.hidden = false;
+  decodedBadge.classList.add('decoding');
+  decodedCopyBtn.disabled = true;
+  decodedCopyBtn.style.opacity = '0.35';
+}
+
+/* ── Phase 2: fill in decoded panel once LLM is done ───── */
+function showDecompressed(data) {
+  decodedSkeleton.hidden = true;
+  decodedBadge.classList.remove('decoding');
+  decodedCopyBtn.disabled = false;
+  decodedCopyBtn.style.opacity = '';
+
   if (data.decompressed) {
-    textDecoded.textContent    = data.decompressed;
-    decompressNote.hidden      = true;
+    textDecoded.hidden    = false;
+    textDecoded.textContent = data.decompressed;
+    decompressNote.hidden = true;
   } else {
-    textDecoded.textContent    = '(LLM decompression unavailable)';
-    decompressNote.hidden      = false;
+    textDecoded.hidden    = false;
+    textDecoded.textContent = '(LLM decompression unavailable)';
+    decompressNote.hidden = false;
     decompressNote.textContent = '⚠ ' + (data.decompress_error || 'Ollama not running');
   }
 }
@@ -168,52 +150,56 @@ filePillRem.addEventListener('click', e => { e.stopPropagation(); clearFile(); }
 runBtn.addEventListener('click', async () => {
   if (!currentFile || isProcessing) return;
 
-  // Lock immediately — disable button so the user can’t queue another call
+  // Lock immediately
   isProcessing = true;
   runBtn.disabled = true;
-  runBtn.querySelector('.run-btn-label').textContent = 'Processing…';
+  runBtn.querySelector('.run-btn-label').textContent = 'Compressing…';
 
   const text = await currentFile.text();
 
-  showProcessing();
-
-  // Tiny delay so the pipeline animation is visible before the fetch
-  await new Promise(r => setTimeout(r, 500));
-
-  let data;
+  // ── Phase 1: algorithmic compression (instant) ───────
+  let compressData;
   try {
-    const res = await fetch('/api/process', {
+    const res = await fetch('/api/compress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     });
-
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'Server error');
+      throw new Error(err.error || 'Compression failed');
     }
-
-    // Compression is instant; now we wait for the LLM — show the loading bar
-    pipelineProgress('decompress');
-
-    data = await res.json();
+    compressData = await res.json();
   } catch (err) {
-    // On error: restore UI so the user can try again
     isProcessing = false;
     runBtn.disabled = false;
     runBtn.querySelector('.run-btn-label').textContent = 'Compress & Decode';
-    processing.hidden = true;
-    uploadSect.hidden = false;
     alert('Error: ' + err.message);
     return;
   }
 
-  pipelineProgress('done');
-  await new Promise(r => setTimeout(r, 600));
+  // Show original + compressed immediately, skeleton in decoded panel
+  showPartialResults(compressData);
+  runBtn.querySelector('.run-btn-label').textContent = 'Decoding…';
 
-  showResults(data);
+  // ── Phase 2: LLM decompression (slow, background) ───
+  try {
+    const res2 = await fetch('/api/decompress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ compressed: compressData.compressed }),
+    });
+    if (!res2.ok) {
+      const err = await res2.json().catch(() => ({ error: res2.statusText }));
+      throw new Error(err.error || 'Decompression failed');
+    }
+    const decompressData = await res2.json();
+    showDecompressed(decompressData);
+  } catch (err) {
+    showDecompressed({ decompressed: null, decompress_error: err.message });
+  }
 
-  // Unlock after results are shown
+  // Unlock
   isProcessing = false;
   runBtn.disabled = false;
   runBtn.querySelector('.run-btn-label').textContent = 'Compress & Decode';
@@ -222,9 +208,10 @@ runBtn.addEventListener('click', async () => {
 /* ── copy buttons ───────────────────────────────────────── */
 document.querySelectorAll('.copy-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
     const targetId = btn.dataset.target;
     const el = document.getElementById(targetId);
-    if (!el) return;
+    if (!el || el.hidden) return;
     await navigator.clipboard.writeText(el.textContent).catch(() => {});
     btn.textContent = 'Copied!';
     btn.classList.add('copied');
